@@ -54,7 +54,7 @@ topacity = [ 0.3,     0.8,     0.9,     0.7,      0.3,     0.4,     0.4,
 def writeText(i,value,row):
   
   text = dwg.add(dwg.text(str(value), insert=(0,textstart),font_size=12, font_family='Montserrat', fill='black'))
-  #print ("Printing " + str(value) + " at " + str(textstart))
+  # print("Printing " + str(value) + " at " + str(textstart))
   global previoustext
   previoustext = previoustext + textheight  
   #end writeText
@@ -93,23 +93,23 @@ def writeImages(i,value,row):
   global previoustext
   currentimage = "Images/" + value + ".png"
   if os.access(currentimage, os.R_OK):
-    print "Adding " + currentimage
+    print("Adding " + currentimage)
     image = dwg.add(dwg.image(href=("../" +  currentimage), insert=(i*imagewidth,textstart)))
   else:
-    print "Could not find " + currentimage  
+    print("Could not find " + currentimage)  
 #end writeImages
 
 
 
 
 #open file with read access
-print "Make sure the python script is in the same folder as the file."
-myfile = raw_input("Enter file name without the .csv extension (eg. ESP8266/Thing): ")
+print("Make sure the python script is in the same folder as the file.")
+myfile = input("Enter file name without the .csv extension (eg. ESP8266/Thing): ")
 if os.access(myfile +".csv", os.R_OK):
   file = open(myfile +".csv","r")
-  print "File opened"
+  print("File opened")
 else:
-  print "File not found, please try again, there should be a comma deliminated csv file with the data in it.  See script for more details"
+  print("File not found, please try again, there should be a comma deliminated csv file with the data in it.  See script for more details")
   time.sleep(1)
   os._exit(0)
 
@@ -162,7 +162,7 @@ while (rawline!=""):
 #end of while
 
 
-print ("End of File, the output is located at " + myfile + ".svg")
+print("End of File, the output is located at " + myfile + ".svg")
 dwg.save()
 file.close()
 
