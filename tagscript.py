@@ -101,70 +101,77 @@ def writeImages(i,value,row):
 
 
 
+def main():
+  global row
+  global direction
+  global dwg
+  global offset
+  global textstart
+  #open file with read access
+  print("Make sure the python script is in the same folder as the file.")
+  myfile = input("Enter file name without the .csv extension (eg. ESP8266/Thing): ")
+  if os.access(myfile +".csv", os.R_OK):
+    file = open(myfile +".csv","r")
+    print("File opened")
+  else:
+    print("File not found, please try again, there should be a comma deliminated csv file with the data in it.  See script for more details")
+    time.sleep(1)
+    os._exit(0)
 
-#open file with read access
-print("Make sure the python script is in the same folder as the file.")
-myfile = input("Enter file name without the .csv extension (eg. ESP8266/Thing): ")
-if os.access(myfile +".csv", os.R_OK):
-  file = open(myfile +".csv","r")
-  print("File opened")
-else:
-  print("File not found, please try again, there should be a comma deliminated csv file with the data in it.  See script for more details")
-  time.sleep(1)
-  os._exit(0)
-
-#read in each line parse, and send each field to writeField  
-rawline="not empty"
-dwg = svgwrite.Drawing(filename=str(myfile+".svg"), profile='tiny', size=(documentWidth,documentHeight))
-while (rawline!=""):
-  rawline  = file.readline()
-  line = rawline.split(",") #Split into fields separated by ","
-  row=row+1
-  spot=0
-  if (line[0] == "Left"):
-    direction = "l"
-    offset = documentWidth - rowwidth
-    line[0] = ""
-  if (line[0] == "Right"):
-    direction = "r"
-    offset = 0
-    line[0] = ""
-  if (line[0] == "Top"):
-    direction = "r"
-    offset = 0
-    line[0] = ""
-  if (line[0] == "Text"):
-    offset = 0
-    line[0] = ""
-    direction = "text"
-  if(line[0] == "Extras"):
-    offset=0
-    line[0]=""
-    direction = "extras"
-  if (line[0] == "EOF"): #if we are done
-    dwg.save()
-    break
-  for i in range(0, len(line)): #go through total number of fields
-      if(line[i]!="" and direction=='r'):
-        writeField(i,line[i],row, spot)#call function to add that field to the svg file
-        spot=spot+1 #move 'cursor' one spot to the right
-		
-      if(line[i]!="" and direction=='l'):
-        writeField(i,line[i],row, spot)#call function to add that field to the svg file
-        spot=spot-1 #move 'cursor' one spot to the left
-		
-      if (line[i]!="" and direction == "text"):
-         textstart = row*rowheight+previoustext
-         writeText(i,line[i],row)
-		      
-      if (line[i]!="" and direction == "extras"):
-        writeImages(i,line[i],row)
-#end of while
+  #read in each line parse, and send each field to writeField  
+  rawline="not empty"
+  dwg = svgwrite.Drawing(filename=str(myfile+".svg"), profile='tiny', size=(documentWidth,documentHeight))
+  while (rawline!=""):
+    rawline  = file.readline()
+    line = rawline.split(",") #Split into fields separated by ","
+    row=row+1
+    spot=0
+    if (line[0] == "Left"):
+      direction = "l"
+      offset = documentWidth - rowwidth
+      line[0] = ""
+    if (line[0] == "Right"):
+      direction = "r"
+      offset = 0
+      line[0] = ""
+    if (line[0] == "Top"):
+      direction = "r"
+      offset = 0
+      line[0] = ""
+    if (line[0] == "Text"):
+      offset = 0
+      line[0] = ""
+      direction = "text"
+    if(line[0] == "Extras"):
+      offset=0
+      line[0]=""
+      direction = "extras"
+    if (line[0] == "EOF"): #if we are done
+      dwg.save()
+      break
+    for i in range(0, len(line)): #go through total number of fields
+        if(line[i]!="" and direction=='r'):
+          writeField(i,line[i],row, spot)#call function to add that field to the svg file
+          spot=spot+1 #move 'cursor' one spot to the right
+                  
+        if(line[i]!="" and direction=='l'):
+          writeField(i,line[i],row, spot)#call function to add that field to the svg file
+          spot=spot-1 #move 'cursor' one spot to the left
+                  
+        if (line[i]!="" and direction == "text"):
+           textstart = row*rowheight+previoustext
+           writeText(i,line[i],row)
+                        
+        if (line[i]!="" and direction == "extras"):
+          writeImages(i,line[i],row)
+  #end of while
 
 
-print("End of File, the output is located at " + myfile + ".svg")
-dwg.save()
-file.close()
+  print("End of File, the output is located at " + myfile + ".svg")
+  dwg.save()
+  file.close()
 
 
+if __name__ == '__main__':
+  main()
 
