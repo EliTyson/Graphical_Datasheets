@@ -20,52 +20,59 @@ import time
 
 ################################################## GLOBAL VARIABLES ########################################
 
-row=0 #row starts at the top
-height=12 #height of a box
-width=45 #width of a box
-rowheight=15 #height of a row (leaving enough space between rows to move)
-rowwidth=48 #width of a 'spot', basically width plus a few
-fields=13 # number of fields 
-documentWidth = rowwidth*fields +50 #maximum width the document should be
-documentHeight = 2250 #this is  guess since we need to make the document before we know the file size, doesn't really matter anyway
-direction = 'r' #which direction the tag is facing, staring out with labels on the right
-offset=0 #this is where we start, for the left we will start on the right side of the page
-previoustext = 0 #for text function, defines how much text we have already written so we know where to start
-textheight=17 #how much we add each time we add a line of text
-textstart=100 #where a block of text will start (y axis), this will be set in the code
-myfile="ProMini" #file read in to be parsed
-fontsize=12
-imagewidth=250
-imageheight=250
-indent = 1      # move text to the right
-adjust = -2     # move text down (negative for up)
-
+class GDSConfig(object):
+    def __init__(
+         self,
+         height=12,
+         width=45,
+         rowheight=15,
+         rowwidth=48,
+         documentWidth = None,
+         documentHeight = None,
+         textheight=17,
+         fontsize=12,
+         imagewidth=250,
+         imageheight=250,
+         indent = 1,
+         adjust = -2,
+         tcolor = ['white', 'red',   'black', 'yellow', 'green', 'blue',  'purple',
+                 'yellow', 'grey', 'purple', 'orange', 'blue', 'blue', ],
+         topacity = [ 0.3,     0.8,     0.9,     0.7,      0.3,     0.4,     0.4,
+             0.3,      0.3,    0.2,      0.5,      0.1,    0.1,   ],
+    ):
+        self.height = height #height of a box
+        self.width = width #width of a box
+        self.rowheight = rowheight #height of a row (leaving enough space between rows to move)
+        self.rowwidth = rowwidth #width of a 'spot', basically width plus a few
+        self.documentWidth = self.rowwidth*13 +50 #maximum width the document should be
+        self.documentHeight = 2250 #this is  guess since we need to make the document before we know the file size, doesn't really matter anyway
+        self.textheight = textheight #how much we add each time we add a line of text
+        self.fontsize = fontsize
+        self.imagewidth = imagewidth
+        self.imageheight = imageheight
+        self.indent = indent      # move text to the right
+        self.adjust = adjust      # move text down (negative for up)
+        self.tcolor = tcolor
+        self.topacity = topacity
 # "Theme"
 #            Name     Power    GND      Control   Arduino  Port     Analog
 #        PWM       Serial  ExtInt    PCInt     Misc    Misc2
-tcolor   = ['white', 'red',   'black', 'yellow', 'green', 'blue',  'purple',
-        'yellow', 'grey', 'purple', 'orange', 'blue', 'blue', ]
-topacity = [ 0.3,     0.8,     0.9,     0.7,      0.3,     0.4,     0.4,
-         0.3,      0.3,    0.2,      0.5,      0.1,    0.1,   ]
+# tcolor = ['white', 'red',   'black', 'yellow', 'green', 'blue',  'purple',
+#       'yellow', 'grey', 'purple', 'orange', 'blue', 'blue', ],
 
 ################################################# FUNCTIONS ###################################################
 
 #Writes plain text from the text section
-def writeText(i,value,row):
-  
-  text = dwg.add(dwg.text(str(value), insert=(0,textstart),font_size=12, font_family='Montserrat', fill='black'))
-  # print("Printing " + str(value) + " at " + str(textstart))
-  global previoustext
-  previoustext = previoustext + textheight  
+def writeText(dwg, value, ystart, cfg=GDSConfig()):
+  text = dwg.add(dwg.text(str(value), insert=(0,ystart),font_size=12, font_family='Montserrat', fill='black'))
+  # print("Printing " + str(value) + " at " + ystart)
+  return cfg.textheight
   #end writeText
 
 # Creates colored blocks and text for fields
-def writeField(type, value, row, spot):
+def writeField(dwg, type, value, x, y, cfg=GDSConfig()):
 
-    x = spot * rowwidth + offset
-    y = row * rowheight
-
-    color = tcolor[type]  # fill color of box
+    color = cfg.tcolor[type]  # fill color of box
     crect = color         # color for rectangle around box
     ctext = 'black'       # default text color: black
 
@@ -77,36 +84,37 @@ def writeField(type, value, row, spot):
 
     # Box
     dwg.add(dwg.rect(
-        (x, y), (width, height), 1, 1,
-        stroke = crect, opacity = topacity[type], fill = color
+        (x, y), (cfg.width, cfg.height), 1, 1,
+        stroke = crect, opacity = cfg.topacity[type], fill = color
         ))
 
     # Text
     dwg.add(dwg.text(
-        str(value), insert = (x + indent, y + height + adjust),
-        font_size = fontsize, font_family='Montserrat', fill = ctext
+        str(value), insert = (x + cfg.indent, y + cfg.height + cfg.adjust),
+        font_size = cfg.fontsize, font_family='Montserrat', fill = ctext
         ))
+
+    return cfg.rowheight
 
 
 #adds images to end of document, currently not used as pngs don't work as well as I'd like and it is easier to just drag and drop the files I want into the final file.
-def writeImages(i,value,row):
-  global previoustext
+def writeImages(dwg, i, value, ystart, cfg=GDSConfig()):
   currentimage = "Images/" + value + ".png"
   if os.access(currentimage, os.R_OK):
     print("Adding " + currentimage)
-    image = dwg.add(dwg.image(href=("../" +  currentimage), insert=(i*imagewidth,textstart)))
+    image = dwg.add(dwg.image(href=("../" +  currentimage), insert=(i*cfg.imagewidth, ystart)))
+    return i*cfg.imagewidth
+
   else:
     print("Could not find " + currentimage)  
+    return 0
 #end writeImages
 
 
+def createGDS(cfg=GDSConfig()):
+  cursor = 15
+  direction = 'r'
 
-def main():
-  global row
-  global direction
-  global dwg
-  global offset
-  global textstart
   #open file with read access
   print("Make sure the python script is in the same folder as the file.")
   myfile = input("Enter file name without the .csv extension (eg. ESP8266/Thing): ")
@@ -120,15 +128,16 @@ def main():
 
   #read in each line parse, and send each field to writeField  
   rawline="not empty"
-  dwg = svgwrite.Drawing(filename=str(myfile+".svg"), profile='tiny', size=(documentWidth,documentHeight))
+  dwg = svgwrite.Drawing(filename=str(myfile+".svg"), profile='tiny', size=(cfg.documentWidth,cfg.documentHeight))
   while (rawline!=""):
+    # add space to maintain compatibility with previous version
+    if direction == 'text':
+      cursor += cfg.rowheight
+
     rawline  = file.readline()
     line = rawline.split(",") #Split into fields separated by ","
-    row=row+1
-    spot=0
     if (line[0] == "Left"):
       direction = "l"
-      offset = documentWidth - rowwidth
       line[0] = ""
     if (line[0] == "Right"):
       direction = "r"
@@ -149,21 +158,26 @@ def main():
     if (line[0] == "EOF"): #if we are done
       dwg.save()
       break
+
+    y_add = 0
+    label_index = 0
     for i in range(0, len(line)): #go through total number of fields
         if(line[i]!="" and direction=='r'):
-          writeField(i,line[i],row, spot)#call function to add that field to the svg file
-          spot=spot+1 #move 'cursor' one spot to the right
+          y_add = writeField(dwg, i,line[i], label_index*cfg.rowwidth, cursor, cfg)#call function to add that field to the svg file
+          label_index += 1
                   
         if(line[i]!="" and direction=='l'):
-          writeField(i,line[i],row, spot)#call function to add that field to the svg file
-          spot=spot-1 #move 'cursor' one spot to the left
+          xstart = cfg.documentWidth - cfg.rowwidth - label_index*cfg.rowwidth
+          y_add = writeField(dwg, i,line[i], xstart, cursor, cfg)#call function to add that field to the svg file
+          label_index += 1
                   
         if (line[i]!="" and direction == "text"):
-           textstart = row*rowheight+previoustext
-           writeText(i,line[i],row)
+           cursor += writeText(dwg, line[i], cursor, cfg)
                         
         if (line[i]!="" and direction == "extras"):
-          writeImages(i,line[i],row)
+            y_add = writeImages(dwg, i, line[i], cursor, cfg)
+    cursor += y_add
+
   #end of while
 
 
@@ -173,5 +187,5 @@ def main():
 
 
 if __name__ == '__main__':
-  main()
+  createGDS()
 
