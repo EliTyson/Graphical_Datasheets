@@ -3,11 +3,11 @@
 #https://pypi.python.org/pypi/svgwrite/  - Library this script uses
 #install Python27, download svgwrite, from svgwrite folder run "C:\Python27\python setup.py install"
 
-# This script starts by asking for a file, this name is saved as 'myfile'
-# Input file is a 'myfile'.csv and is referred to as file
+# This script starts by asking for a file, this name is saved as 'csv_filename'
+# Input file is a 'csv_filename'.csv and is referred to as file
 # Be careful what characters you use.  This is a comma deliminated file, so using a comma in your text will cause problems.  
 # Also, some applications will change characters to non-standard characters you will get an error (" - " is often to a larger dash that is non standard)
-# Output file is a 'myfile'.svg and is defined before the while loop
+# Output file is a 'csv_filename'.svg and is defined before the while loop
 # The script is setup for 13 fields, to add more change the global fields variable and add another section to the writeField function with the colors you want.
 # If the following words are in field 1 of a line it will change the structure of the output blocks to fit that heading "Left, Right, Top, Text, Extras"
 # Text will not make a box, but make a new row of text for each field, each line will be a different section of text, this section must be after blocks
@@ -16,7 +16,7 @@
 
 import os
 import svgwrite
-import time
+from sys import argv, exit
 
 ################################################## GLOBAL VARIABLES ########################################
 
@@ -39,6 +39,8 @@ class GDSConfig(object):
                  'yellow', 'grey', 'purple', 'orange', 'blue', 'blue', ],
          topacity = [ 0.3,     0.8,     0.9,     0.7,      0.3,     0.4,     0.4,
              0.3,      0.3,    0.2,      0.5,      0.1,    0.1,   ],
+         overwrite = False,
+         pretty = True,
     ):
         self.height = height #height of a box
         self.width = width #width of a box
@@ -54,6 +56,8 @@ class GDSConfig(object):
         self.adjust = adjust      # move text down (negative for up)
         self.tcolor = tcolor
         self.topacity = topacity
+        self.overwrite = overwrite # overwrite svg files in directory (Default: False)
+        self.pretty = pretty # indent svg file (thereby increasing file size) (Default: True)
 # "Theme"
 #            Name     Power    GND      Control   Arduino  Port     Analog
 #        PWM       Serial  ExtInt    PCInt     Misc    Misc2
@@ -111,79 +115,102 @@ def writeImages(dwg, i, value, ystart, cfg=GDSConfig()):
 #end writeImages
 
 
+def read_csv(infile):
+  #open file with read access
+  if infile is None:
+    print("Make sure the python script is in the same folder as the file.")
+    filename_root = input("Enter file name without the .csv extension (eg. ESP8266/Thing): ")
+    csv_filename = filename_root + '.csv'
+  else:
+    filename_root = infile[0:-4]
+    csv_filename = infile
+
+  if os.access(csv_filename, os.R_OK):
+    with open(csv_filename, "r") as f:
+      print("File opened")
+      lines = f.readlines()
+      return filename_root, lines
+  else:
+    print("File not found, please try again, there should be a comma deliminated csv file with the data in it.  See script for more details")
+    exit(0)
+
+
+def write_svg(dwg, name_root, cfg=GDSConfig()):
+  new_name = name_root
+  if not cfg.overwrite:
+    i = 2
+    while os.access(new_name + '.svg', os.F_OK):
+        new_name = '{0}_{1:02d}'.format(name_root, i)
+        i += 1
+
+  print("End of File, the output is located at " + new_name + ".svg")
+  dwg.saveas(new_name + '.svg', pretty=cfg.pretty)
+
+
 def createGDS(cfg=GDSConfig()):
+  infile = None
+  outfile_root = None
+  if len(argv) in [2, 3] and argv[1].lower().endswith('.csv'):
+    infile = argv[1]
+
+  if len(argv) == 3 and argv[2].lower().endswith('.svg'):
+    outfile_root = argv[2][0:-4]
+
+  filename_root, lines = read_csv(infile)
+  dwg = svgwrite.Drawing(filename=str(filename_root+".svg"),
+                         profile='tiny', 
+                         size=(cfg.documentWidth,cfg.documentHeight))
   cursor = 15
   direction = 'r'
 
-  #open file with read access
-  print("Make sure the python script is in the same folder as the file.")
-  myfile = input("Enter file name without the .csv extension (eg. ESP8266/Thing): ")
-  if os.access(myfile +".csv", os.R_OK):
-    file = open(myfile +".csv","r")
-    print("File opened")
-  else:
-    print("File not found, please try again, there should be a comma deliminated csv file with the data in it.  See script for more details")
-    time.sleep(1)
-    os._exit(0)
-
   #read in each line parse, and send each field to writeField  
-  rawline="not empty"
-  dwg = svgwrite.Drawing(filename=str(myfile+".svg"), profile='tiny', size=(cfg.documentWidth,cfg.documentHeight))
-  while (rawline!=""):
+  records = [line.split(',') for line in lines]
+  for record in records:
     # add space to maintain compatibility with previous version
     if direction == 'text':
       cursor += cfg.rowheight
 
-    rawline  = file.readline()
-    line = rawline.split(",") #Split into fields separated by ","
-    if (line[0] == "Left"):
+    if (record[0] == "Left"):
       direction = "l"
-      line[0] = ""
-    if (line[0] == "Right"):
+      record[0] = ""
+    if (record[0] == "Right"):
       direction = "r"
-      offset = 0
-      line[0] = ""
-    if (line[0] == "Top"):
+      record[0] = ""
+    if (record[0] == "Top"):
       direction = "r"
-      offset = 0
-      line[0] = ""
-    if (line[0] == "Text"):
-      offset = 0
-      line[0] = ""
+      record[0] = ""
+    if (record[0] == "Text"):
+      record[0] = ""
       direction = "text"
-    if(line[0] == "Extras"):
-      offset=0
-      line[0]=""
+    if(record[0] == "Extras"):
+      record[0]=""
       direction = "extras"
-    if (line[0] == "EOF"): #if we are done
-      dwg.save()
+    if (record[0] == "EOF"): #if we are done
       break
 
     y_add = 0
     label_index = 0
-    for i in range(0, len(line)): #go through total number of fields
-        if(line[i]!="" and direction=='r'):
-          y_add = writeField(dwg, i,line[i], label_index*cfg.rowwidth, cursor, cfg)#call function to add that field to the svg file
+    for i in range(0, len(record)): #go through total number of fields
+        if(record[i]!="" and direction=='r'):
+          y_add = writeField(dwg, i,record[i], label_index*cfg.rowwidth, cursor, cfg)#call function to add that field to the svg file
           label_index += 1
                   
-        if(line[i]!="" and direction=='l'):
+        if(record[i]!="" and direction=='l'):
           xstart = cfg.documentWidth - cfg.rowwidth - label_index*cfg.rowwidth
-          y_add = writeField(dwg, i,line[i], xstart, cursor, cfg)#call function to add that field to the svg file
+          y_add = writeField(dwg, i,record[i], xstart, cursor, cfg)#call function to add that field to the svg file
           label_index += 1
                   
-        if (line[i]!="" and direction == "text"):
-           cursor += writeText(dwg, line[i], cursor, cfg)
+        if (record[i]!="" and direction == "text"):
+           cursor += writeText(dwg, record[i], cursor, cfg)
                         
-        if (line[i]!="" and direction == "extras"):
-            y_add = writeImages(dwg, i, line[i], cursor, cfg)
+        if (record[i]!="" and direction == "extras"):
+            y_add = writeImages(dwg, i, record[i], cursor, cfg)
     cursor += y_add
 
   #end of while
 
-
-  print("End of File, the output is located at " + myfile + ".svg")
-  dwg.save()
-  file.close()
+  svg_root = outfile_root if outfile_root is not None else filename_root
+  write_svg(dwg, svg_root, cfg)
 
 
 if __name__ == '__main__':
