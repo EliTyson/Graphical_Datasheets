@@ -135,6 +135,44 @@ def read_csv(infile):
     exit(0)
 
 
+def process_csv_data(dwg, lines, cfg=GDSConfig()):
+  cursor = 15
+  direction = 'Right'
+
+  #read in each line parse, and send each field to writeField  
+  records = [line.split(',') for line in lines]
+  for record in records:
+    # add space to maintain compatibility with previous version
+    if direction == 'Text':
+      cursor += cfg.rowheight
+
+    if record[0] in ('Left', 'Right', 'Top', 'Text', 'Extras') and (
+            record[0] == ''.join(record).rstrip()):
+        direction = record[0]
+        record[0] = ''
+    elif record[0] == 'EOF' and record[0] == ''.join(record).rstrip():
+        break
+
+    y_add = 0
+    label_index = 0
+    for i in range(0, len(record)): #go through total number of fields
+        if record[i] and direction in ('Right', 'Top'):
+          y_add = writeField(dwg, i,record[i], label_index*cfg.rowwidth, cursor, cfg)#call function to add that field to the svg file
+          label_index += 1
+                  
+        if record[i] and direction=='Left':
+          xstart = cfg.documentWidth - cfg.rowwidth - label_index*cfg.rowwidth
+          y_add = writeField(dwg, i,record[i], xstart, cursor, cfg)#call function to add that field to the svg file
+          label_index += 1
+                  
+        if record[i] and direction == 'Text':
+           cursor += writeText(dwg, record[i], cursor, cfg)
+                        
+        if record[i] and direction == 'Extras':
+            y_add = writeImages(dwg, i, record[i], cursor, cfg)
+    cursor += y_add
+
+
 def write_svg(dwg, name_root, cfg=GDSConfig()):
   new_name = name_root
   if not cfg.overwrite:
@@ -160,54 +198,7 @@ def createGDS(cfg=GDSConfig()):
   dwg = svgwrite.Drawing(filename=str(filename_root+".svg"),
                          profile='tiny', 
                          size=(cfg.documentWidth,cfg.documentHeight))
-  cursor = 15
-  direction = 'r'
-
-  #read in each line parse, and send each field to writeField  
-  records = [line.split(',') for line in lines]
-  for record in records:
-    # add space to maintain compatibility with previous version
-    if direction == 'text':
-      cursor += cfg.rowheight
-
-    if (record[0] == "Left"):
-      direction = "l"
-      record[0] = ""
-    if (record[0] == "Right"):
-      direction = "r"
-      record[0] = ""
-    if (record[0] == "Top"):
-      direction = "r"
-      record[0] = ""
-    if (record[0] == "Text"):
-      record[0] = ""
-      direction = "text"
-    if(record[0] == "Extras"):
-      record[0]=""
-      direction = "extras"
-    if (record[0] == "EOF"): #if we are done
-      break
-
-    y_add = 0
-    label_index = 0
-    for i in range(0, len(record)): #go through total number of fields
-        if(record[i]!="" and direction=='r'):
-          y_add = writeField(dwg, i,record[i], label_index*cfg.rowwidth, cursor, cfg)#call function to add that field to the svg file
-          label_index += 1
-                  
-        if(record[i]!="" and direction=='l'):
-          xstart = cfg.documentWidth - cfg.rowwidth - label_index*cfg.rowwidth
-          y_add = writeField(dwg, i,record[i], xstart, cursor, cfg)#call function to add that field to the svg file
-          label_index += 1
-                  
-        if (record[i]!="" and direction == "text"):
-           cursor += writeText(dwg, record[i], cursor, cfg)
-                        
-        if (record[i]!="" and direction == "extras"):
-            y_add = writeImages(dwg, i, record[i], cursor, cfg)
-    cursor += y_add
-
-  #end of while
+  process_csv_data(dwg, lines, cfg)
 
   svg_root = outfile_root if outfile_root is not None else filename_root
   write_svg(dwg, svg_root, cfg)
