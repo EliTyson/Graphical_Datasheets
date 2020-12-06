@@ -1,0 +1,16 @@
+# Folders
+__pycache__/
+Images/
+tests/
+
+# Files
+conftest.py
+
+# Root Directory
+/*.svg
+/*.csv
+/*.css
+!default.css
+
+# Filetypes
+**.py1.stats

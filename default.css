@@ -1,0 +1,80 @@
+.text {
+    /* font-family: "Times New Roman", Times, serif; */
+    font-family: Roboto, Montserrat, Arial, Helvetica, sans-serif;
+}
+
+.text_line0 {
+    font-weight: bold;
+}
+
+/* tag0: white (#ff0000) 0.3 ⇒ #ffffff; (stroke: black #000000) 0.3 ⇒ #b3b3b3 */
+.tag0.tag_bkg {
+    fill: #ffffff;
+    stroke: #b3b3b3;
+}
+
+/* tag1: red (#ff0000) 0.8 ⇒ #ff3333 */
+.tag1.tag_bkg {
+    fill: #ff3333;
+    stroke: #ff3333;
+}
+
+/* tag2: black (#000000) 0.9 ⇒ #191919 */
+.tag2.tag_bkg {
+    fill: #191919;
+    stroke: #191919;
+}
+
+/* tag3: yellow (#ffff00) 0.7 ⇒ #ffff4d */
+.tag3.tag_bkg {
+    fill: #ffff4d;
+    stroke: #ffff4d;
+}
+
+/* tag4: green (#008000) 0.3 ⇒ #b3d9b3 */
+.tag4.tag_bkg {
+    fill: #b3d9b3;
+    stroke: #b3d9b3;
+}
+
+/* tag5: blue (#0000ff) 0.4 ⇒ #9999ff */
+.tag5.tag_bkg {
+    fill: #9999ff;
+    stroke: #9999ff;
+}
+
+/* tag6: purple (#800080) 0.4 ⇒ #cc99cc */
+.tag6.tag_bkg {
+    fill: #cc99cc;
+    stroke: #cc99cc;
+}
+
+/* tag7: yellow (#ffff00) 0.3 ⇒ #ffffb3 */
+.tag7.tag_bkg {
+    fill: #ffffb3;
+    stroke: #ffffb3;
+}
+
+/* tag8: grey (#808080) 0.3 ⇒ #d9d9d9 */
+.tag8.tag_bkg {
+    fill: #d9d9d9;
+    stroke: #d9d9d9;
+}
+
+/* tag9: purple (#800080) 0.2 ⇒ #e6cce6 */
+.tag9.tag_bkg {
+    fill: #e6cce6;
+    stroke: #e6cce6;
+}
+
+/* tag10: orange (#ffa500) 0.5 ⇒ #ffd280 */
+.tag10.tag_bkg {
+    fill: #ffd280;
+    stroke: #ffd280;
+}
+
+/* tag11: blue (#0000ff) 0.1 ⇒ #e6e6ff */
+.tag11.tag_bkg {
+    fill: #e6e6ff;
+    stroke: #e6e6ff;
+}

@@ -1,59 +1,144 @@
 #!/usr/bin/python
-#http://www.astro.ufl.edu/~warner/prog/python.html  - Python Basics if you want to learn some Python
-#https://pypi.python.org/pypi/svgwrite/  - Library this script uses
-#install Python27, download svgwrite, from svgwrite folder run "C:\Python27\python setup.py install"
+"""Create a Graphical Datasheet SVG file from a formatted CSV file.
 
-# This script starts by asking for a file, this name is saved as 'csv_filename'
-# Input file is a 'csv_filename'.csv and is referred to as file
-# Be careful what characters you use.  This is a comma deliminated file, so using a comma in your text will cause problems.  
-# Also, some applications will change characters to non-standard characters you will get an error (" - " is often to a larger dash that is non standard)
-# Output file is a 'csv_filename'.svg and is defined before the while loop
-# The script is setup for 13 fields, to add more change the global fields variable and add another section to the writeField function with the colors you want.
-# If the following words are in field 1 of a line it will change the structure of the output blocks to fit that heading "Left, Right, Top, Text, Extras"
-# Text will not make a box, but make a new row of text for each field, each line will be a different section of text, this section must be after blocks
-# Extras will look for a file in the folder /Images called value.png and add it to the svg, useful for things like ISP headers graphic, etc. (I'm not actually using this)
-# File is read until field 1 is "EOF"
+Syntax: `python tagscript.py [[<CSV filename>] [<SVG filename>]]
+A comma-separated values (CSV) filename can be supplied to the script as
+an argument:
+    e.g., `python tagscript.py ProMini.csv`
+Alternatively, the user may run the script without arguments and enter
+the CSV filename root when prompted.  The proper CSV formatting is
+described in the accompanying README.md.
+
+By default the root of the CSV filename will be used for the SVG file.
+So `ProMini.csv` will result in a `ProMini.svg`.  A different SVG
+filename can be specified by entering a SVG filename with the second
+parameter:
+    e.g., `python tagscript.py ProMini.csv foo.svg`
+
+The following were used as resources for creating the script:
+* <http://www.astro.ufl.edu/~warner/prog/python.html> Python Basics
+* <https://pypi.python.org/pypi/svgwrite/>  svgwrite library
+"""
 
 import os
-import svgwrite
-from sys import argv, exit
+from sys import argv, exit as sys_exit
+from urllib.error import HTTPError, URLError
 
-################################################## GLOBAL VARIABLES ########################################
+from svgwrite import Drawing
 
-class GDSConfig(object):
+
+class GDConfig(object):
+    """Configuration settings for Graphical Datasheet creation.
+
+    Instantiation of GDConfig without arguments results in a default
+    configuration object.  Use keyword arguments to override default
+    options:
+        `GDConfig(font='Times', tab_margin_x=5, overwrite=True)`
+
+    Attributes:
+        font: (str, Default:'Varta') The font used throughout the
+            datasheet.
+        google_font: (str, Default:None) Google font to download and
+            embed.  Note that the font will only be used if it is
+            specified with 'font' (or a stylesheet).
+        default_google_fonts: (set) This is a private attribute that CANNOT be
+            set during instantiation. Set of google font names that will
+            automatically be embedded without being specified with the
+            'google_font' attribute. The list includes:
+                'Montserrat', 'IBM Plex Sans', 'Big Shoulders Display',
+                'Varta', 'Roboto Condensed', 'Inconsolata'
+        font_size: (int, Default: 12) Size of font for all datasheet
+            text.
+        tag_txt_margin_l: (int, Default: 1) Number of pixels before text
+            of tag begins.
+        tag_txt_margin_b: (int, Default: 2) Number of background pixels
+            below text.
+        tag_txt_color: (str, Default: '#000000') Default text color for
+            tags (can be overridden using 'tag_colors')
+        tag_colors: (list, Default: None) List of colors to use for each
+            tag index.  Each item in the list is itself a list of 3
+            color strings. The first color corresponds to the tag
+            background color, the second to the tag outline, and the
+            third to the tag
+            text: [<bkg_color>, <outline_color>, <text_color>].
+                e.g., [['red', 'blue', 'white'], ['cyan', 'orange',
+                'black'], ...]
+        tag_height: (int, Default: 12) Height of tag background.
+        tag_width: (int, Default: 45) Width of tag background.
+        tag_margin_x: (int, Default: 3) Pixels separating tags in a
+            ribbon.
+        tag_margin_y: (int, Default: 3) Pixels separating each ribbon
+            vertically.
+        image_width: (int, Default: 250) Width of embedded PNG images
+            (maintains aspect ratio).
+        image_height: (int, Default: 250) Height of embedded PNG images
+            (maintains aspect ratio).
+        text_line_height: (int, Default 17) Line height for 'Text' mode
+            lines.
+        document_width: (int, Default: None) Width of the SVG in pixels.
+            If this is set to 'None' the size will be set to accommodate
+            all of the included SVG elements
+        document_height: (int, Default: None) Height of the SVG in
+            pixels.  If this is set to 'None' the size will be set to
+            accommodate all of the included SVG elements
+        link_stylesheet: (bool, Default: False) Link stylesheet rather
+            than embedding it. Note, linked stylesheets are not
+            currently supported by Inkskape (although they may be
+            supported in future releases).
+        overwrite: (bool, Default: False) Overwrite SVG files.  If False
+            and the presumed filename already exists it increments
+            (e.g., foo.svg, foo_2.svg, foo_3.svg,...)
+        pretty: (bool, Default: True) Save SVG file in a more readable,
+            indented file.  If False, the resulting SVG will not have
+            indentation and multiple elements per line.  Setting it to
+            False will thereby result in a smaller file size.
+    """
+
     def __init__(
-         self,
-         height=12,
-         width=45,
-         rowheight=15,
-         rowwidth=48,
-         documentWidth=None,
-         documentHeight=None,
-         textheight=17,
-         link_stylesheet=False,
-         font='Varta',
-         google_font=None,
-         fontsize=12,
-         imagewidth=250,
-         imageheight=250,
-         indent=1,
-         adjust=-2,
-         tagtxt_color='#000000',
-         tag_colors=None,
-         overwrite=False,
-         pretty=True,
-    ):
-        self.height = height #height of a box
-        self.width = width #width of a box
-        self.rowheight = rowheight #height of a row (leaving enough space between rows to move)
-        self.rowwidth = rowwidth #width of a 'spot', basically width plus a few
-        self.documentWidth = self.rowwidth*13 +50 #maximum width the document should be
-        self.documentHeight = 2250 #this is  guess since we need to make the document before we know the file size, doesn't really matter anyway
-        self.textheight = textheight #how much we add each time we add a line of text
-        self.link_stylesheet = link_stylesheet
+                 self,
+                 font='Varta',
+                 google_font=None,
+                 font_size=12,
+                 tag_txt_margin_l=1,
+                 tag_txt_margin_b=2,
+                 tag_txt_color='#000000',
+                 tag_colors=None,
+                 tag_height=12,
+                 tag_width=45,
+                 tag_margin_x=3,
+                 tag_margin_y=3,
+                 image_width=250,
+                 image_height=250,
+                 text_line_height=17,
+                 document_width=None,
+                 document_height=None,
+                 link_stylesheet=False,
+                 overwrite=False,
+                 pretty=True,
+                ):
+        """Initializes a GDConfig object.
+
+        Args:
+            (See GDConfig 'Attributes' descriptions)
+            tag_colors: (list, Default: None) Specifies the list of
+                colors to use with each tag index.  Each list item is
+                itself a list of three color strings corresponding to
+                the tag background, outline and text. If list items are
+                a list of two colors, then 'tag_txt_color' will be used
+                for the third list item.  If the item is a list of a
+                single color (i.e., ['red']) or simply a color string,
+                that color is used as both the background color and the
+                outline color with the 'tag_txt_color' used for the
+                text.
+                If a 'tag_colors' list item is None or is improperly
+                formatted, the default colors will be used instead.  So
+                `[None, 2, ['purple', 'yellow', 'white'], 4, 'red']`
+                will only alter the colors for the third and fifth tags
+                (index 2 and 6).
+        """
         self.font = font
         self.google_font = google_font
-        self._google_fonts = {
+        self.default_google_fonts = {
                               'Montserrat',
                               'IBM Plex Sans',
                               'Big Shoulders Display',
@@ -61,254 +146,375 @@ class GDSConfig(object):
                               'Roboto Condensed',
                               'Inconsolata',
                              }
-        self.fontsize = fontsize
-        self.imagewidth = imagewidth
-        self.imageheight = imageheight
-        self.indent = indent      # move text to the right
-        self.adjust = adjust      # move text down (negative for up)
-        self.tagtxt_color = tagtxt_color
+        self.font_size = font_size
+        self.tag_txt_margin_l = tag_txt_margin_l
+        self.tag_txt_margin_b = tag_txt_margin_b
+        self.tag_txt_color = tag_txt_color
         self.tag_colors = self.get_colors(tag_colors)
-        self.overwrite = overwrite # overwrite svg files in directory (Default: False)
-        self.pretty = pretty # indent svg file (thereby increasing file size) (Default: True)
+        self.tag_height = tag_height
+        self.tag_width = tag_width
+        self.tag_margin_x = tag_margin_x
+        self.tag_margin_y = tag_margin_y
+        self.image_width = image_width
+        self.image_height = image_height
+        self.text_line_height = text_line_height
+        self.document_width = document_width
+        self.document_height = document_height
+        self.link_stylesheet = link_stylesheet
+        self.overwrite = overwrite
+        self.pretty = pretty
 
-    def get_colors(self, tag_colors):
+    def get_colors(self, new_colors):
+        """Alters the default tag color scheme.
+
+        If list items are a list of two colors, then 'tag_txt_color'
+        will be used for the third list item.  If the item is a list of
+        a single color (i.e., ['red']) or simply a color string, that
+        color is used as both the background color and the outline color
+        with the 'tag_txt_color' used for the text.  If a 'tag_colors'
+        list item is None or is improperly formatted, the default colors
+        will be used instead.
+
+        `get_colors([None, 2, ['purple', 'yellow', 'white'], 4, 'red'])`
+        will only alter the colors for the third and fifth tags (index 2
+        and 4).
+
+        Args:
+            new_colors: (list) A list of color settings for each tag
+                index.
+        Returns:
+            A list of tag color settings (each in the form of a three
+            string list).  If new_colors is None, the default_colors
+            list is returned unchanged.  Otherwise the list is created
+            based on the passed-in new_colors list.
+        """
         default_colors = [
-            ['#ffffff', '#b3b3b3', self.tagtxt_color],
-            ['#ff3333', '#ff3333', self.tagtxt_color],
+            ['#ffffff', '#b3b3b3', self.tag_txt_color],
+            ['#ff3333', '#ff3333', self.tag_txt_color],
             ['#191919', '#191919', '#ffffff'],
-            ['#ffff4d', '#ffff4d', self.tagtxt_color],
-            ['#b3d9b3', '#b3d9b3', self.tagtxt_color],
-            ['#9999ff', '#9999ff', self.tagtxt_color],
-            ['#cc99cc', '#cc99cc', self.tagtxt_color],
-            ['#ffffb3', '#ffffb3', self.tagtxt_color],
-            ['#d9d9d9', '#d9d9d9', self.tagtxt_color],
-            ['#e6cce6', '#e6cce6', self.tagtxt_color],
-            ['#ffd280', '#ffd280', self.tagtxt_color],
-            ['#e6e6ff', '#e6e6ff', self.tagtxt_color],
+            ['#ffff4d', '#ffff4d', self.tag_txt_color],
+            ['#b3d9b3', '#b3d9b3', self.tag_txt_color],
+            ['#9999ff', '#9999ff', self.tag_txt_color],
+            ['#cc99cc', '#cc99cc', self.tag_txt_color],
+            ['#ffffb3', '#ffffb3', self.tag_txt_color],
+            ['#d9d9d9', '#d9d9d9', self.tag_txt_color],
+            ['#e6cce6', '#e6cce6', self.tag_txt_color],
+            ['#ffd280', '#ffd280', self.tag_txt_color],
+            ['#e6e6ff', '#e6e6ff', self.tag_txt_color],
         ]
-
-        if tag_colors is None and not isinstance(tag_colors, (list, tuple)):
+        if new_colors is None and not isinstance(new_colors, (list, tuple)):
             return default_colors
 
-        if isinstance(tag_colors, tuple):
-            tag_colors = [*tag_colors]
+        if isinstance(new_colors, tuple):
+            new_colors = [*new_colors]
 
-        for i in range(len(tag_colors)):
-            if isinstance(tag_colors[i], str):
-                tag_colors[i] = [tag_colors[i],
-                                 tag_colors[i],
-                                 self.tagtxt_color]
-            elif isinstance(tag_colors[i], (list, tuple)):
-                if len(tag_colors[i]) == 3:
-                    tag_colors[i] = list(tag_colors[i])
-                elif len(tag_colors[i]) == 2:
-                    tag_colors[i] = [tag_colors[i][0],
-                                     tag_colors[i][1],
-                                     self.tagtxt_color]
-                elif len(tag_colors[i]) == 1:
-                    tag_colors[i] = [tag_colors[i][0],
-                                     tag_colors[i][0],
-                                     self.tagtxt_color]
-                else:
-                    tag_colors[i] = None
-            else:
-                tag_colors[i] = None
+        for i, value in enumerate(new_colors):
+            new_colors[i] = None
+            if isinstance(new_colors[i], str):
+                new_colors[i] = [value,
+                                 value,
+                                 self.tag_txt_color]
+            elif isinstance(new_colors[i], (list, tuple)):
+                if len(new_colors[i]) == 3:
+                    new_colors[i] = list(new_colors[i])
+                elif len(new_colors[i]) == 2:
+                    new_colors[i] = [value[0],
+                                     value[1],
+                                     self.tag_txt_color]
+                elif len(new_colors[i]) == 1:
+                    new_colors[i] = [value[0],
+                                     value[0],
+                                     self.tag_txt_color]
 
-        if len(tag_colors) > len(default_colors):
+        if len(new_colors) > len(default_colors):
             default_colors = [*default_colors + [default_colors[-1]] * (
-                                len(tag_colors) - len(default_colors))]
+                              len(new_colors) - len(default_colors))]
 
-        new_colors = list(default_colors)
-        for i in range(len(tag_colors)):
-            if tag_colors[i] is not None:
-                new_colors[i] = tag_colors[i]
+        final_colors = default_colors[:]
+        for i, value in enumerate(new_colors):
+            if value is not None:
+                final_colors[i] = value
 
-        return new_colors
+        return final_colors
 
-################################################# FUNCTIONS ###################################################
 
-#Writes plain text from the text section
-def writeText(dwg, value, i, ystart, cfg=GDSConfig()):
-  text = dwg.add(dwg.text(str(value), 
-                          insert=(0,ystart),
-                          font_size=12,
-                          font_family=cfg.font,
-                          fill='black',
-                          class_='text_line{:d} text'.format(i),
-                         ))
-  # print("Printing " + str(value) + " at " + ystart)
-  return cfg.textheight
-  #end writeText
+def add_tag(dwg, i, value, position, cfg=GDConfig()):
+    """Add tags comprised of colored blocks and text.
 
-# Creates colored blocks and text for fields
-def writeField(dwg, i, value, x, y, cfg=GDSConfig()):
+    Args:
+        dwg: (svg.drawing.Drawing) A svgwrite Drawing instance to amend.
+        i: (int) The index of the tag element.
+        value: (str) A string of text to add above the tag background.
+        y: (int) The vertical position to add the tag in the SVG.
+        cfg: (GDConfig Default=GDConfig()) Graphical Datasheet
+            configuration to use.
 
-    color = cfg.tag_colors[i][0]  # fill color of box
-    crect = cfg.tag_colors[i][1]  # color for rectangle around box
-    ctext = cfg.tag_colors[i][2]  # default text color: black
+    Returns:
+        An int, providing the amount of vertical space used.
+    """
+    color_bkg, color_outline, color_txt = cfg.tag_colors[i]
+    position_x, position_y = position
 
-    # Box
     dwg.add(dwg.rect(
-        (x, y), (cfg.width, cfg.height), 1, 1,
-        stroke = crect, fill = color,
+        insert=(position_x, position_y),
+        size=(cfg.tag_width, cfg.tag_height),
+        rx=1,
+        ry=1,
+        stroke=color_outline,
+        fill=color_bkg,
         class_='tag{:d} tag_bkg'.format(i)
     ))
 
-    # Text
     dwg.add(dwg.text(
-        str(value), insert = (x + cfg.indent, y + cfg.height + cfg.adjust),
-        font_size=cfg.fontsize, font_family=cfg.font, fill=ctext,
+        value,
+        insert=(position_x + cfg.tag_txt_margin_l,
+                position_y + cfg.tag_height - cfg.tag_txt_margin_b),
+        font_size=cfg.font_size,
+        font_family=cfg.font,
+        fill=color_txt,
         class_='tag{:d} tag_txt'.format(i)
     ))
 
-    return cfg.rowheight
+    return cfg.tag_height + cfg.tag_margin_y
 
 
-#adds images to end of document, currently not used as pngs don't work as well as I'd like and it is easier to just drag and drop the files I want into the final file.
-def writeImages(dwg, i, value, ystart, cfg=GDSConfig()):
-  currentimage = os.path.join('Images', value + '.png')
-  if os.access(currentimage, os.R_OK):
-    print('Adding {}'.format(currentimage))
-    image = dwg.add(dwg.image(href=currentimage,
-                              insert=(i*cfg.imagewidth, ystart),
-                              size=(cfg.imagewidth, cfg.imageheight)))
-    return cfg.imageheight
-  else:
-    print("Could not find {}".format(currentimage))  
+def add_text(dwg, i, value, ystart, cfg=GDConfig()):
+    """Add plain text from the 'Text' section of the CSV.
+
+    Args:
+        dwg: (svg.drawing.Drawing) A svgwrite Drawing instance to amend.
+        i: (int) The index of the text element.
+        value: (str) A string of text to add to the SVG.
+        ystart: (int) The vertical position to add the text in the SVG.
+        cfg: (GDConfig Default=GDConfig()) Graphical Datasheet
+            configuration to use.
+
+    Returns:
+        An int, providing the amount of vertical space used.
+    """
+    dwg.add(dwg.text(str(value),
+                     insert=(0, ystart),
+                     font_size=12,
+                     font_family=cfg.font,
+                     fill='black',
+                     class_='text_line{:d} text'.format(i)))
+    return cfg.text_line_height
+
+
+def add_images(dwg, i, value, ystart, cfg=GDConfig()):
+    """Adds PNG images to the SVG.
+
+    Args:
+        dwg: (svg.drawing.Drawing) A svgwrite Drawing instance to amend.
+        i: (int) The index of the image element.
+        value: (str) The PNG filename root.
+        ystart: (int) The vertical position to add the image.
+        cfg: (GDConfig Default=GDConfig()) Graphical Datasheet
+            configuration to use.
+
+    Returns:
+        An int, providing the amount of vertical space used.
+    """
+    currentimage = os.path.join('Images', value + '.png')
+    if os.access(currentimage, os.R_OK):
+        print('Adding {}'.format(currentimage))
+        dwg.add(dwg.image(href=currentimage,
+                          insert=(i*cfg.image_width, ystart),
+                          size=(cfg.image_width, cfg.image_height)))
+        return cfg.image_height
+
+    print('Could not find {}'.format(currentimage))
     return 0
-#end writeImages
 
 
 def read_csv(infile):
-  #open file with read access
-  if infile is None:
-    print("Make sure the python script is in the same folder as the file.")
-    filename_root = input("Enter file name without the .csv extension (eg. ESP8266/Thing): ")
-    csv_filename = filename_root + '.csv'
-  else:
-    filename_root = infile[0:-4]
-    csv_filename = infile
+    """Gets data from a CSV file for processing into an SVG file.
 
-  if os.access(csv_filename, os.R_OK):
-    with open(csv_filename, "r") as f:
-      print("File opened")
-      lines = f.readlines()
-      return filename_root, lines
-  else:
-    print("File not found, please try again, there should be a comma deliminated csv file with the data in it.  See script for more details")
-    exit(0)
+    If 'infile' is None the user is prompted to enter the root of a CSV
+    filename.
 
-
-def embed_style(dwg, filename_root, cfg=GDSConfig()):
-  if cfg.font in cfg._google_fonts or cfg.font == cfg.google_font:
-    print('Embedding Google Font: "{:s}" ... '.format(cfg.font))
-    try:
-        dwg.embed_google_web_font(
-        cfg.font, 
-        'https://fonts.googleapis.com/css?family=' + cfg.font.replace(' ', '+'),
+    Args:
+        infile: (str) CSV filename to read
+    """
+    if infile is None:
+        print('Make sure the python script is in the same folder as the file.')
+        filename_root = input(
+            'Enter filename without the .csv extension (e.g., ESP8266/Thing): '
         )
-    except Exception as e:
-        print('\t' + str(type(e)), e)
-        print('\tSorry, unable to embed "{:s}"'.format(cfg.font)) 
+        csv_filename = filename_root + '.csv'
     else:
-        print('\tSuccess, embedded "{:s}"'.format(cfg.font))
+        filename_root = infile[0:-4]
+        csv_filename = infile
 
-  style_filename = '{}.css'.format(filename_root)
-  if cfg.link_stylesheet:
-    dwg.add_stylesheet('default.css', 'Default SVG Theme')
-    dwg.add_stylesheet('{}'.format(style_filename),
-                       '{} Theme'.format(filename_root))
-  else:
-    if os.access('default.css', os.R_OK):
-        print('Embedding "{}" stylesheet'.format('default.css'))
-        with open('default.css', "r") as f:
-            dwg.embed_stylesheet(f.read())
-    if os.access(style_filename, os.R_OK):
-        print('Embedding "{}" stylesheet'.format(style_filename))
-        with open(style_filename, "r") as f:
-            dwg.embed_stylesheet(f.read())
+    if os.access(csv_filename, os.R_OK):
+        with open(csv_filename, 'r') as csv_file:
+            print('"{}" opened'.format(csv_filename))
+            lines = list(csv_file)
+            return filename_root, lines
+    else:
+        print('CSV data file not found. Please try again. '
+              'See README.md for details.')
+        sys_exit(0)
 
 
-def process_csv_data(dwg, lines, cfg=GDSConfig()):
-  cursor = 15
-  direction = 'Right'
+def embed_style(dwg, filename_root, cfg=GDConfig()):
+    """Embed any necessary google fonts and stylesheets.
 
-  #read in each line parse, and send each field to writeField  
-  records = [line.rstrip().split(',') for line in lines]
-  ribbon_width = len(records[0])*cfg.rowwidth + 50 
+    Args:
+        dwg: (svg.drawing.Drawing) A svgwrite Drawing instance to amend.
+        filename_root: (str) root of the CSV file to embed.
+        cfg: (GDConfig Default=GDConfig()) Graphical Datasheet
+            configuration to use.
+    """
+    embed_fonts = []
+    if cfg.font in cfg.default_google_fonts:
+        embed_fonts.append(cfg.font)
+    if cfg.google_font is not None:
+        embed_fonts.append(cfg.google_font)
 
-  if len(records[0]) > len(cfg.tag_colors):
-    cfg.tag_colors = [*cfg.tag_colors + [cfg.tag_colors[-1]] * (
-        len(records[0]) - len(cfg.tag_colors))]
+    for embed_font in embed_fonts:
+        print('Embedding Google Font: "{:s}"'.format(embed_font))
+        try:
+            dwg.embed_google_web_font(
+                embed_font,
+                ('https://fonts.googleapis.com/css?family='
+                 + embed_font.replace(' ', '+')))
+        except (HTTPError, URLError) as exc:
+            print('\t' + str(type(exc)), exc)
+            print('\tSorry, unable to embed "{:s}"'.format(embed_font))
 
-  for record in records:
-
-    if record[0] in ('Left', 'Right', 'Top', 'Text', 'Extras') and (
-            record[0] == ''.join(record).rstrip()):
-        direction = record[0]
-        cursor += 15
-        continue
-    elif record[0] == 'EOF' and record[0] == ''.join(record).rstrip():
-        break
-
-    if direction == 'Text':
-      cursor += cfg.rowheight
-
-    y_add = 0
-    label_index = 0
-    for i in range(0, len(record)): #go through total number of fields
-        if record[i] and direction in ('Right', 'Top'):
-          y_add = writeField(dwg, i,record[i], label_index*cfg.rowwidth, cursor, cfg)#call function to add that field to the svg file
-          label_index += 1
-                  
-        elif record[i] and direction=='Left':
-          xstart = ribbon_width - cfg.rowwidth - label_index*cfg.rowwidth
-          y_add = writeField(dwg, i,record[i], xstart, cursor, cfg)#call function to add that field to the svg file
-          label_index += 1
-                  
-        elif record[i] and direction == 'Text':
-           cursor += writeText(dwg, record[i], i, cursor, cfg)
-                        
-        elif record[i] and direction == 'Extras':
-            found_image = writeImages(dwg, i, record[i], cursor, cfg)
-            y_add = found_image if found_image else y_add
-
-    cursor += y_add
-  # print('cursor: {}\nlength: {}\nwidth: {}'.format(cursor, len(records[0]), cfg.rowwidth))
-  dwg.update({'width': str(ribbon_width), 'height': str(cursor)})
+    style_filename = filename_root + '.css'
+    if cfg.link_stylesheet:
+        print('Linking "{}" stylesheet'.format('default.css'))
+        dwg.add_stylesheet('default.css', 'Default SVG Theme')
+        print('Linking "{}" stylesheet'.format(style_filename))
+        dwg.add_stylesheet(style_filename,
+                           '{} Theme'.format(filename_root))
+    else:
+        if os.access('default.css', os.R_OK):
+            print('Embedding "{}" stylesheet'.format('default.css'))
+            with open('default.css', 'r') as css_file:
+                dwg.embed_stylesheet(css_file.read())
+        if os.access(style_filename, os.R_OK):
+            print('Embedding "{}" stylesheet'.format(style_filename))
+            with open(style_filename, 'r') as css_file:
+                dwg.embed_stylesheet(css_file.read())
 
 
-def write_svg(dwg, name_root, cfg=GDSConfig()):
-  new_name = name_root
-  if not cfg.overwrite:
-    i = 2
-    while os.access(new_name + '.svg', os.F_OK):
-        new_name = '{0}_{1:02d}'.format(name_root, i)
-        i += 1
+def process_csv_data(dwg, lines, cfg=GDConfig()):
+    """Parse data and call add_field(), add_text(), and add_images().
 
-  print("End of File, the output is located at " + new_name + ".svg")
-  dwg.saveas(new_name + '.svg', pretty=cfg.pretty)
+    Args:
+        dwg: (svg.drawing.Drawing) A svgwrite Drawing instance to amend.
+        lines: (list) CSV file lines in a list of strings.
+        cfg: (GDConfig Default=GDConfig()) Graphical Datasheet
+            configuration to use.
+    """
+    cursor = cfg.tag_height + cfg.tag_margin_y
+    mode = None
+
+    records = [line.rstrip().split(',') for line in lines]
+    ribbon_width = (len(records[0]) + 1) * (cfg.tag_width + cfg.tag_margin_x)
+    images_width = 0
+
+    if len(records[0]) > len(cfg.tag_colors):
+        diff = len(records[0]) - len(cfg.tag_colors)
+        cfg.tag_colors = [*cfg.tag_colors + [cfg.tag_colors[-1]] * diff]
+
+    for record in records:
+        if record[0] in ('Left', 'Right', 'Top', 'Text', 'Extras') and (
+                record[0] == ''.join(record).rstrip()):
+            mode = record[0]
+            cursor += 15
+            continue
+
+        if record[0] == 'EOF' and record[0] == ''.join(record).rstrip():
+            break
+
+        if mode == 'Text':
+            cursor += cfg.tag_height + cfg.tag_margin_y
+
+        y_add = 0
+        label_index = 0
+        image_index = 0
+        for i, rec in enumerate(record):
+            if rec and mode in ('Right', 'Top', None):
+                x_start = label_index * (cfg.tag_width + cfg.tag_margin_x)
+                y_add = add_tag(dwg, i, rec, (x_start, cursor), cfg)
+                label_index += 1
+
+            elif rec and mode == 'Left':
+                tag_space = cfg.tag_width + cfg.tag_margin_x
+                x_start = ribbon_width - tag_space - (label_index * tag_space)
+                y_add = add_tag(dwg, i, rec, (x_start, cursor), cfg)
+                label_index += 1
+
+            elif rec and mode == 'Text':
+                cursor += add_text(dwg, i, rec, cursor, cfg)
+
+            elif rec and mode == 'Extras':
+                found_image = add_images(dwg, i, record[i], cursor, cfg)
+                if found_image != 0:
+                    y_add = found_image
+                    image_index += 1
+
+        cursor += y_add
+        if mode == 'Extras' and images_width < image_index * cfg.image_width:
+            images_width = image_index * cfg.image_width
+
+    min_width = ribbon_width if ribbon_width > images_width else images_width
+    width = min_width if cfg.document_width is None else cfg.document_width
+    height = cursor if cfg.document_height is None else cfg.document_height
+    dwg.update({'width': str(width), 'height': str(height)})
 
 
-def createGDS(cfg=GDSConfig()):
-  infile = None
-  outfile_root = None
-  if len(argv) in (2, 3) and argv[1].lower().endswith('.csv'):
-    infile = argv[1] if len(argv[1]) > 4 else None
+def write_svg(dwg, name_root, cfg=GDConfig()):
+    """Saves the SVG to the current directory
 
-  if len(argv) == 3 and argv[2].lower().endswith('.svg'):
-    outfile_root = argv[2][0:-4] if len(argv[2]) > 4 else None
+    Args:
+        dwg: (svg.drawing.Drawing) A svgwrite Drawing to save to disk.
+        name_root: (str) root for the output SVG file.
+        cfg: (GDConfig Default=GDConfig()) Graphical Datasheet
+            configuration to use.
+    """
+    new_name = name_root
+    if not cfg.overwrite:
+        i = 2
+        while os.access(new_name + '.svg', os.F_OK):
+            new_name = '{0}_{1:02d}'.format(name_root, i)
+            i += 1
 
-  filename_root, lines = read_csv(infile)
-  dwg = svgwrite.Drawing(filename=str(filename_root+".svg"),
-                         size=(cfg.documentWidth,cfg.documentHeight))
-  svg_root = outfile_root if outfile_root is not None else filename_root
+    print('End of File, the output is located at {}.svg'.format(new_name))
+    dwg.saveas(new_name + '.svg', pretty=cfg.pretty)
 
-  embed_style(dwg, filename_root, cfg)
-  process_csv_data(dwg, lines, cfg)
-  write_svg(dwg, svg_root, cfg)
+
+def create_gd(cfg=GDConfig()):
+    """Main function to load the CSV, processes it, and save the SVG.
+
+    Args:
+        cfg: (GDConfig Default=GDConfig()) Graphical Datasheet
+            configuration to use.
+    """
+    infile = None
+    outfile_root = None
+    if len(argv) in (2, 3) and argv[1].lower().endswith('.csv'):
+        infile = argv[1] if len(argv[1]) > 4 else None
+
+    if len(argv) == 3 and argv[2].lower().endswith('.svg'):
+        outfile_root = argv[2][0:-4] if len(argv[2]) > 4 else None
+
+    filename_root, lines = read_csv(infile)
+    dwg = Drawing(filename=filename_root + '.svg')
+    svg_root = outfile_root if outfile_root is not None else filename_root
+
+    embed_style(dwg, filename_root, cfg)
+    process_csv_data(dwg, lines, cfg)
+    write_svg(dwg, svg_root, cfg)
 
 
 if __name__ == '__main__':
-  createGDS()
-
+    config = GDConfig(
+                      # google_font='Mr Roboto',
+                      # image_width=500,
+                     )
+    create_gd(config)
