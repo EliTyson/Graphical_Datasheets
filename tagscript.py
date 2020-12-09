@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Create a Graphical Datasheet SVG file from a formatted CSV file.
 
 Syntax: `python tagscript.py [[<CSV filename>] [<SVG filename>]]
@@ -49,10 +49,8 @@ class GDConfig(object):
                 'Varta', 'Roboto Condensed', 'Inconsolata'
         font_size: (int, Default: 12) Size of font for all datasheet
             text.
-        tag_txt_margin_l: (int, Default: 1) Number of pixels before text
-            of tag begins.
-        tag_txt_margin_b: (int, Default: 2) Number of background pixels
-            below text.
+        tag_txt_margins: (tuple/list, Default: (1, 2)) Number of pixels (on
+            left and bottom) before text of tag begins.
         tag_txt_color: (str, Default: '#000000') Default text color for
             tags (can be overridden using 'tag_colors')
         tag_colors: (list, Default: None) List of colors to use for each
@@ -63,24 +61,17 @@ class GDConfig(object):
             text: [<bkg_color>, <outline_color>, <text_color>].
                 e.g., [['red', 'blue', 'white'], ['cyan', 'orange',
                 'black'], ...]
-        tag_height: (int, Default: 12) Height of tag background.
-        tag_width: (int, Default: 45) Width of tag background.
-        tag_margin_x: (int, Default: 3) Pixels separating tags in a
-            ribbon.
-        tag_margin_y: (int, Default: 3) Pixels separating each ribbon
-            vertically.
-        image_width: (int, Default: 250) Width of embedded PNG images
-            (maintains aspect ratio).
-        image_height: (int, Default: 250) Height of embedded PNG images
-            (maintains aspect ratio).
+        tag_size: (tuple/list, Default: (45, 12)) Width, Height of tag
+            background.
+        tag_margins: (tuple/list, Default: (3, 3)) Pixels to left and below tag
+            bkgs.
+        image_size: (tuple/list, Default: (250, 250)) Width/Height of embedded
+            PNG images (maintains aspect ratio).
         text_line_height: (int, Default 17) Line height for 'Text' mode
             lines.
-        document_width: (int, Default: None) Width of the SVG in pixels.
-            If this is set to 'None' the size will be set to accommodate
-            all of the included SVG elements
-        document_height: (int, Default: None) Height of the SVG in
-            pixels.  If this is set to 'None' the size will be set to
-            accommodate all of the included SVG elements
+        document_size: (tuple/list, Default: (None, None)) Width/Height of the
+            SVG in pixels.  If either dimension is set to 'None' the size will
+            be set dynamically to accommodate all of the included SVG elements.
         link_stylesheet: (bool, Default: False) Link stylesheet rather
             than embedding it. Note, linked stylesheets are not
             currently supported by Inkskape (although they may be
@@ -99,19 +90,14 @@ class GDConfig(object):
                  font='Varta',
                  google_font=None,
                  font_size=12,
-                 tag_txt_margin_l=1,
-                 tag_txt_margin_b=2,
+                 tag_txt_margins=(1, 2),
                  tag_txt_color='#000000',
                  tag_colors=None,
-                 tag_height=12,
-                 tag_width=45,
-                 tag_margin_x=3,
-                 tag_margin_y=3,
-                 image_width=250,
-                 image_height=250,
+                 tag_size=(45, 12),
+                 tag_margins=(3, 3),
+                 image_size=(250, 250),
                  text_line_height=17,
-                 document_width=None,
-                 document_height=None,
+                 document_size=(None, None),
                  link_stylesheet=False,
                  overwrite=False,
                  pretty=True,
@@ -147,19 +133,14 @@ class GDConfig(object):
                               'Inconsolata',
                              }
         self.font_size = font_size
-        self.tag_txt_margin_l = tag_txt_margin_l
-        self.tag_txt_margin_b = tag_txt_margin_b
+        self.tag_txt_margins = list(tag_txt_margins)
         self.tag_txt_color = tag_txt_color
         self.tag_colors = self.get_colors(tag_colors)
-        self.tag_height = tag_height
-        self.tag_width = tag_width
-        self.tag_margin_x = tag_margin_x
-        self.tag_margin_y = tag_margin_y
-        self.image_width = image_width
-        self.image_height = image_height
+        self.tag_size = list(tag_size)
+        self.tag_margins = list(tag_margins)
+        self.image_size = list(image_size)
         self.text_line_height = text_line_height
-        self.document_width = document_width
-        self.document_height = document_height
+        self.document_size = list(document_size)
         self.link_stylesheet = link_stylesheet
         self.overwrite = overwrite
         self.pretty = pretty
@@ -257,7 +238,7 @@ def add_tag(dwg, i, value, position, cfg=GDConfig()):
 
     dwg.add(dwg.rect(
         insert=(position_x, position_y),
-        size=(cfg.tag_width, cfg.tag_height),
+        size=(cfg.tag_size[0], cfg.tag_size[1]),
         rx=1,
         ry=1,
         stroke=color_outline,
@@ -267,15 +248,15 @@ def add_tag(dwg, i, value, position, cfg=GDConfig()):
 
     dwg.add(dwg.text(
         value,
-        insert=(position_x + cfg.tag_txt_margin_l,
-                position_y + cfg.tag_height - cfg.tag_txt_margin_b),
+        insert=(position_x + cfg.tag_txt_margins[0],
+                position_y + cfg.tag_size[1] - cfg.tag_txt_margins[1]),
         font_size=cfg.font_size,
         font_family=cfg.font,
         fill=color_txt,
         class_='tag{:d} tag_txt'.format(i)
     ))
 
-    return cfg.tag_height + cfg.tag_margin_y
+    return cfg.tag_size[1] + cfg.tag_margins[1]
 
 
 def add_text(dwg, i, value, ystart, cfg=GDConfig()):
@@ -319,9 +300,9 @@ def add_images(dwg, i, value, ystart, cfg=GDConfig()):
     if os.access(currentimage, os.R_OK):
         print('Adding {}'.format(currentimage))
         dwg.add(dwg.image(href=currentimage,
-                          insert=(i*cfg.image_width, ystart),
-                          size=(cfg.image_width, cfg.image_height)))
-        return cfg.image_height
+                          insert=(i*cfg.image_size[0], ystart),
+                          size=(cfg.image_size[0], cfg.image_size[1])))
+        return cfg.image_size[1]
 
     print('Could not find {}'.format(currentimage))
     return 0
@@ -349,7 +330,7 @@ def read_csv(infile):
     if os.access(csv_filename, os.R_OK):
         with open(csv_filename, 'r') as csv_file:
             print('"{}" opened'.format(csv_filename))
-            lines = list(csv_file)
+            lines = csv_file.read().splitlines()
             return filename_root, lines
     else:
         print('CSV data file not found. Please try again. '
@@ -410,11 +391,12 @@ def process_csv_data(dwg, lines, cfg=GDConfig()):
         cfg: (GDConfig Default=GDConfig()) Graphical Datasheet
             configuration to use.
     """
-    cursor = cfg.tag_height + cfg.tag_margin_y
+    cursor = cfg.tag_size[1] + cfg.tag_margins[1]
     mode = None
 
-    records = [line.rstrip().split(',') for line in lines]
-    ribbon_width = (len(records[0]) + 1) * (cfg.tag_width + cfg.tag_margin_x)
+    records = [line.split(',') for line in lines]
+    ribbon_width = (len(records[0]) + 1) * (cfg.tag_size[0]
+                                            + cfg.tag_margins[0])
     images_width = 0
 
     if len(records[0]) > len(cfg.tag_colors):
@@ -422,29 +404,31 @@ def process_csv_data(dwg, lines, cfg=GDConfig()):
         cfg.tag_colors = [*cfg.tag_colors + [cfg.tag_colors[-1]] * diff]
 
     for record in records:
+        # Some repository CSV files have a '1' in the last column.  This
+        # '1' is ignored for determining mode.
         if record[0] in ('Left', 'Right', 'Top', 'Text', 'Extras') and (
-                record[0] == ''.join(record).rstrip()):
+                record[0] == ''.join(record).rstrip('1')):
             mode = record[0]
             cursor += 15
             continue
 
-        if record[0] == 'EOF' and record[0] == ''.join(record).rstrip():
+        if record[0] == 'EOF' and record[0] == ''.join(record).rstrip('1'):
             break
 
         if mode == 'Text':
-            cursor += cfg.tag_height + cfg.tag_margin_y
+            cursor += cfg.tag_size[1] + cfg.tag_margins[1]
 
         y_add = 0
         label_index = 0
         image_index = 0
         for i, rec in enumerate(record):
             if rec and mode in ('Right', 'Top', None):
-                x_start = label_index * (cfg.tag_width + cfg.tag_margin_x)
+                x_start = label_index * (cfg.tag_size[0] + cfg.tag_margins[0])
                 y_add = add_tag(dwg, i, rec, (x_start, cursor), cfg)
                 label_index += 1
 
             elif rec and mode == 'Left':
-                tag_space = cfg.tag_width + cfg.tag_margin_x
+                tag_space = cfg.tag_size[0] + cfg.tag_margins[0]
                 x_start = ribbon_width - tag_space - (label_index * tag_space)
                 y_add = add_tag(dwg, i, rec, (x_start, cursor), cfg)
                 label_index += 1
@@ -459,12 +443,12 @@ def process_csv_data(dwg, lines, cfg=GDConfig()):
                     image_index += 1
 
         cursor += y_add
-        if mode == 'Extras' and images_width < image_index * cfg.image_width:
-            images_width = image_index * cfg.image_width
+        if mode == 'Extras' and images_width < image_index * cfg.image_size[0]:
+            images_width = image_index * cfg.image_size[0]
 
     min_width = ribbon_width if ribbon_width > images_width else images_width
-    width = min_width if cfg.document_width is None else cfg.document_width
-    height = cursor if cfg.document_height is None else cfg.document_height
+    width = min_width if cfg.document_size[0] is None else cfg.document_size[0]
+    height = cursor if cfg.document_size[1] is None else cfg.document_size[1]
     dwg.update({'width': str(width), 'height': str(height)})
 
 
@@ -515,6 +499,6 @@ def create_gd(cfg=GDConfig()):
 if __name__ == '__main__':
     config = GDConfig(
                       # google_font='Mr Roboto',
-                      # image_width=500,
+                      # image_size[0]=500,
                      )
     create_gd(config)
