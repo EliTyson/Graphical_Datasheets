@@ -6,14 +6,43 @@ A comma-separated values (CSV) filename can be supplied to the script as
 an argument:
     e.g., `python tagscript.py ProMini.csv`
 Alternatively, the user may run the script without arguments and enter
-the CSV filename root when prompted.  The proper CSV formatting is
-described in the accompanying README.md.
+the CSV filename root when prompted.
 
 By default the root of the CSV filename will be used for the SVG file.
 So `ProMini.csv` will result in a `ProMini.svg`.  A different SVG
 filename can be specified by entering a SVG filename with the second
 parameter:
     e.g., `python tagscript.py ProMini.csv foo.svg`
+
+-------------------------------------------------------------------------------
+Basics to CSV formatting:
+If the following words are in field 1 of a line and all other fields are
+empty, it will change the structure of the output blocks to fit that
+heading: "Left, Right, Top, Text, Extras".
+
+Left, Right, Top
+Subsequent lines should contain the tag fields. "Right" and "Top" orient
+the tags from left-to-right. Lines following a line "Left" in the first
+field will be added from right-to-left. By default, fields in each
+column will receive the same styling.
+
+Text
+"Text" will not make a box, but make a new row of text for each field.
+Each line will be a different text element.
+
+Extras
+"Extras" will look inside /Images folder for PNG files specified in the
+subsequent lines. If <value> is placed in the first field on the next
+line, and /Images/<value>.png exists, it will be added. Names on the
+same line are added horizontally. Images may be useful for things like
+ISP headers graphic, etc. However, you may find it easier to simply add
+the images while arranging your elements in Inkskape (or other SVG
+editor).
+
+EOF
+An "EOF" field can be used to end the script (ignoring subsequent
+lines).
+-------------------------------------------------------------------------------
 
 The following were used as resources for creating the script:
 * <http://www.astro.ufl.edu/~warner/prog/python.html> Python Basics
